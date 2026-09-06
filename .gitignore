@@ -1,4 +1,4 @@
-﻿﻿# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -254,6 +254,7 @@ comprehensive_*.py
 *指南.md
 easy_xt项目API函数说明文档_第*.md
 EasyXT*.md
+!docs/EASYXT_VS_OSKHQUANT.md
 QMT*.md
 qstock*.md
 功能调用对照表.md

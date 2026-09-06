@@ -15,20 +15,17 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 
+from easy_xt.qmt_paths import resolve_big_qmt_datadir
+
 
 class QMTLocalReader:
     """
     QMT本地数据读取器
 
-    直接读取 QMT 本地缓存文件，无需通过 API 网络请求
-    性能提升：50-100倍
+    直接读取大 QMT 本地缓存文件（datadir），无需 xtquant API。
+    miniQMT / userdata_mini 已停用。
     """
 
-    # QMT 数据目录配置（支持大QMT和miniQMT）
-    DEFAULT_DATA_DIR = Path(r"D:/国金QMT交易端模拟/userdata_mini/datadir")
-    BIG_QMT_DATA_DIR = Path(r"D:/国金QMT交易端模拟/datadir")
-
-    # 大QMT文件命名后缀
     BIG_QMT_SUFFIX = "_9000"
 
     # 周期代码映射
@@ -45,8 +42,9 @@ class QMTLocalReader:
     }
 
     def __init__(self, data_dir: Optional[Path] = None):
-        """初始化读取器"""
-        self.data_dir = Path(data_dir) if data_dir else self.DEFAULT_DATA_DIR
+        """初始化读取器。未传 data_dir 时自动解析银河大 QMT datadir。"""
+        self.data_dir = Path(data_dir) if data_dir else resolve_big_qmt_datadir()
+        self.big_qmt_data_dir = self.data_dir
         if not self.data_dir.exists():
             raise FileNotFoundError(f"QMT data directory not found: {self.data_dir}")
 
@@ -67,34 +65,11 @@ class QMTLocalReader:
         if not period_code:
             raise ValueError(f"Unsupported period: {period}")
 
-        # 构建候选路径列表（按优先级）
-        candidates = []
-
-        if prefer_big_qmt:
-            # 大QMT优先: datadir/market/{period_code}/{code}.DAT
-            candidates.append(
-                self.BIG_QMT_DATA_DIR / market / period_code / f"{code}.DAT"
-            )
-            # 大QMT也兼容 market/0/{code}_9000.DAT 格式
-            candidates.append(
-                self.BIG_QMT_DATA_DIR / market / '0' / f"{code}{self.BIG_QMT_SUFFIX}.DAT"
-            )
-            # 回退到 miniQMT
-            candidates.append(
-                self.data_dir / market / period_code / f"{code}.DAT"
-            )
-        else:
-            # miniQMT优先: userdata_mini/datadir/market/{period_code}/{code}.DAT
-            candidates.append(
-                self.data_dir / market / period_code / f"{code}.DAT"
-            )
-            # 回退到 大QMT
-            candidates.append(
-                self.BIG_QMT_DATA_DIR / market / period_code / f"{code}.DAT"
-            )
-            candidates.append(
-                self.BIG_QMT_DATA_DIR / market / '0' / f"{code}{self.BIG_QMT_SUFFIX}.DAT"
-            )
+        datadir = self.data_dir
+        candidates = [
+            datadir / market / period_code / f"{code}.DAT",
+            datadir / market / '0' / f"{code}{self.BIG_QMT_SUFFIX}.DAT",
+        ]
 
         # 兼容旧的日线目录格式
         if period == '1d':
@@ -159,8 +134,8 @@ class QMTLocalReader:
                 offset = i * rec_size
                 vals = struct.unpack_from('<IIIIIIII', data, offset)
                 ts = vals[0]
-                # 验证时间戳合理性 (1990-2026)
-                if not (631152000 < ts < 1767225600):
+                # 验证时间戳合理性 (1990-01-01 ~ 2040-01-01)
+                if not (631152000 < ts < 2208988800):
                     continue
 
                 dt = datetime.fromtimestamp(ts)
@@ -332,56 +307,33 @@ class QMTLocalReader:
         markets = [market] if market else ['SH', 'SZ']
 
         for mkt in markets:
-            # 大QMT路径
-            big_dir = self.BIG_QMT_DATA_DIR / mkt / period_code
-            if big_dir.exists():
-                for f in big_dir.glob('*.DAT'):
-                    code = f.stem
-                    if code.isdigit():
-                        stocks.append(f"{code}.{mkt}")
-
-            # miniQMT路径
-            mini_dir = self.data_dir / mkt / period_code
-            if mini_dir.exists():
-                for f in mini_dir.glob('*.DAT'):
-                    code = f.stem
-                    if code.isdigit():
-                        stock_code = f"{code}.{mkt}"
-                        if stock_code not in stocks:
-                            stocks.append(stock_code)
+            daily_dir = self.data_dir / mkt / period_code
+            if not daily_dir.exists():
+                continue
+            for f in daily_dir.glob('*.DAT'):
+                code = f.stem
+                if code.isdigit():
+                    stocks.append(f"{code}.{mkt}")
 
         return sorted(stocks)
 
     def get_data_summary(self) -> Dict:
         """获取数据目录摘要信息"""
         summary = {
-            'big_qmt': {'path': str(self.BIG_QMT_DATA_DIR), 'exists': False, 'daily_count': 0},
-            'mini_qmt': {'path': str(self.data_dir), 'exists': False, 'daily_count': 0},
+            'big_qmt': {'path': str(self.data_dir), 'exists': False, 'daily_count': 0},
+            'mini_qmt': {'path': '', 'exists': False, 'daily_count': 0},
         }
 
-        # 大QMT
         for mkt in ['SH', 'SZ']:
-            big_dir = self.BIG_QMT_DATA_DIR / mkt / '86400'
+            big_dir = self.data_dir / mkt / '86400'
             if big_dir.exists():
                 summary['big_qmt']['exists'] = True
                 summary['big_qmt'][f'{mkt}_count'] = len(list(big_dir.glob('*.DAT')))
-
-        # miniQMT
-        for mkt in ['SH', 'SZ']:
-            mini_dir = self.data_dir / mkt / '86400'
-            if mini_dir.exists():
-                summary['mini_qmt']['exists'] = True
-                summary['mini_qmt'][f'{mkt}_count'] = len(list(mini_dir.glob('*.DAT')))
 
         if summary['big_qmt']['exists']:
             sh = summary['big_qmt'].get('SH_count', 0)
             sz = summary['big_qmt'].get('SZ_count', 0)
             summary['big_qmt']['daily_count'] = sh + sz
-
-        if summary['mini_qmt']['exists']:
-            sh = summary['mini_qmt'].get('SH_count', 0)
-            sz = summary['mini_qmt'].get('SZ_count', 0)
-            summary['mini_qmt']['daily_count'] = sh + sz
 
         return summary
 

@@ -775,12 +775,11 @@ class BigQMTImportThread(QThread):
         from core.qmt_local_reader import QMTLocalReader
         from data_manager.duckdb_connection_pool import get_db_manager
 
-        if self.prefer_big_qmt:
-            reader = QMTLocalReader(data_dir=r'D:\国金QMT交易端模拟\datadir')
-            self.log_signal.emit("📂 使用大QMT数据目录: datadir/")
-        else:
-            reader = QMTLocalReader()
-            self.log_signal.emit("📂 使用miniQMT数据目录: userdata_mini/datadir/")
+        from easy_xt.qmt_paths import resolve_big_qmt_datadir
+
+        datadir = resolve_big_qmt_datadir()
+        reader = QMTLocalReader(data_dir=datadir)
+        self.log_signal.emit(f"📂 使用大QMT数据目录: {datadir}")
 
         summary = reader.get_data_summary()
         source = 'big_qmt' if self.prefer_big_qmt else 'mini_qmt'

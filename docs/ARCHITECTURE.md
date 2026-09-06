@@ -890,6 +890,7 @@ EasyXT/                          # 项目根目录（从 GitHub 下载后的文�
 - `docs/INSTALL.md` - 安装指南
 - `docs/API文档.md` - easy_xt API 文档
 - `docs/PROJECT_ISSUES.md` - 项目问题分析报告
+- `docs/EASYXT_VS_OSKHQUANT.md` - 与 OSkhQuant（看海量化）功能/架构对照
 - `strategies/xueqiu_follow/README.md` - 雪球跟单使用说明
 
 ### D. 更新日志

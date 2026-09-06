@@ -134,6 +134,9 @@ python tools/setup_duckdb.py
 
 → 📐 **[系统架构文档 (ARCHITECTURE)](ARCHITECTURE.md)** - 了解项目整体设计、模块关系和技术选型
 
+#### 我想对比看海量化（OSkhQuant）
+→ 📐 **[EasyXT vs OSkhQuant](docs/EASYXT_VS_OSKHQUANT.md)** - 功能、架构与成熟度对照
+
 ---
 
 ## 🌍 跨平台支持

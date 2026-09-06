@@ -51,6 +51,16 @@ def main():
         print(f"  pip install {' '.join(missing_deps)}")
         return False
 
+    # Windows 下 PyQt5 常因找不到 platforms/qwindows.dll 启动失败，
+    # 在导入任何 Qt GUI 组件前显式指定插件路径。
+    if sys.platform == 'win32':
+        import PyQt5
+        qt_plugins = os.path.join(os.path.dirname(PyQt5.__file__), 'Qt5', 'plugins')
+        qt_platforms = os.path.join(qt_plugins, 'platforms')
+        if os.path.isdir(qt_platforms):
+            os.environ.setdefault('QT_PLUGIN_PATH', qt_plugins)
+            os.environ.setdefault('QT_QPA_PLATFORM_PLUGIN_PATH', qt_platforms)
+
     # 检查转换器（独立仓库，可选）
     print("\n[*] 检查转换器...")
     try:
